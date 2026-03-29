@@ -5,11 +5,62 @@
 ## Quick Links
 - [Quick Start](#quick-start) — Get running in 5 min
 - [Key Features](#key-features) — What this system does
+- [Project Structure](#project-structure) — Django app organization
 - [Architecture](#architecture--tech-stack) — Tech stack
 - [API Examples](#api-examples) — Sample requests/responses
 - [Admin Guide](#admin-guide) — Configuration & tuning
 - [Contributing](#contributing) — Development guidelines
 - [Design Docs](#further-reading) — Deep dives (separate files)
+
+## Project Structure
+
+The project follows a modular Django architecture with separate apps for different domains:
+
+```
+fypms/
+├── accounts/              # User management (mentors, students, admins)
+│   ├── models.py          # UserProfile model extending Django User
+│   ├── views.py           # Authentication and profile views
+│   └── admin.py           # User admin interface
+├── projects/              # Project management and duplicate detection
+│   ├── models.py          # Project, ProjectStudent, DuplicateFlag models
+│   ├── utils.py           # Embedding generation and similarity algorithms
+│   └── services.py        # Duplicate detection and mentor assignment logic
+├── appointments/          # Scheduling and calendar integration
+│   ├── models.py          # Appointment model
+│   ├── views.py           # Scheduling views
+│   └── utils.py           # Calendar integration utilities
+├── api/                   # REST API endpoints
+│   ├── views.py           # API views for CRUD operations
+│   ├── serializers.py     # DRF serializers
+│   └── urls.py            # API URL patterns
+├── admin_dashboard/       # Custom admin interface and configuration
+│   ├── views.py           # Dashboard views and analytics
+│   ├── templates/         # Admin templates
+│   └── static/            # Admin CSS/JS assets
+├── core/                  # Shared utilities and base classes
+│   ├── models.py          # Base models and constants
+│   ├── utils.py           # Common utility functions
+│   └── signals.py         # Django signals
+├── fypms/                 # Main Django project settings
+│   ├── settings.py        # Django settings
+│   ├── urls.py            # Main URL configuration
+│   └── wsgi.py            # WSGI application
+├── static/                # Static files (CSS, JS, images)
+├── templates/             # HTML templates
+├── requirements.txt       # Python dependencies
+├── schema.sql             # Database schema
+└── README.md              # This file
+```
+
+### App Responsibilities
+
+- **accounts**: Handles user authentication, profiles, and role-based permissions for students, mentors, and admins.
+- **projects**: Manages project submissions, student-project relationships, and implements duplicate detection algorithms.
+- **appointments**: Provides scheduling functionality with calendar integration and conflict detection.
+- **api**: Exposes REST API endpoints for frontend integration and third-party access.
+- **admin_dashboard**: Custom admin interface for system configuration, analytics, and bulk operations.
+- **core**: Contains shared utilities, base models, constants, and common functionality used across apps.
 
 ## Quick Start
 
