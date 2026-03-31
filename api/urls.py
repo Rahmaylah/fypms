@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     UserProfileViewSet, ProjectViewSet, ProjectStudentViewSet,
-    DuplicateFlagViewSet, AppointmentViewSet
+    DuplicateFlagViewSet, AppointmentViewSet, login_view
 )
 
 router = DefaultRouter()
@@ -16,4 +16,5 @@ app_name = 'api'
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('login/', login_view, name='login'),
 ]
