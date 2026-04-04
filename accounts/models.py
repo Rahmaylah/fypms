@@ -1,55 +1,26 @@
 from django.db import models
-from django.contrib.auth.models import User
-from django.db.models.signals import post_save
-from django.dispatch import receiver
+from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 
-class UserProfile(models.Model):
-    USER_TYPES = [
+class User(AbstractUser):
+    ROLE_CHOICES = [
         ('student', 'Student'),
         ('mentor', 'Mentor'),
-        ('admin', 'Admin'),
+        ('coordinator', 'Coordinator'),  # Manages mentors, higher permissions than mentors
     ]
+    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default='student')
+    middle_name = models.CharField(max_length=150, blank=True)  # Added for three-name structure
+    registration_number = models.CharField(max_length=50, blank=True, null=True, unique=True)  # Only for students
+    mentor = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='students', limit_choices_to={'role__in': ['mentor', 'coordinator']})
+    date_joined = models.DateTimeField(auto_now_add=True, db_column='created_at')  # Map to schema's created_at
+    updated_at = models.DateTimeField(auto_now=True, db_column='updated_at')  # Map to schema's updated_at
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    user_type = models.CharField(max_length=10, choices=USER_TYPES, default='student')
-
-    # Common fields
-    department = models.CharField(max_length=255, blank=True)
-
-    # Student-specific fields
-    registration_number = models.CharField(max_length=50, unique=True, blank=True, null=True)
-    course_id = models.CharField(max_length=100, blank=True)
-
-    # Mentor-specific fields
-    max_students = models.IntegerField(default=5)  # Load balancing for mentors
-    is_admin = models.BooleanField(default=False)
-
-    # Auto-assigned mentor for students
-    mentor = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True,
-                              related_name='assigned_students', limit_choices_to={'user_type': 'mentor'})
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    def clean(self):
+        super().clean()
+        if self.role == 'student' and not self.registration_number:
+            raise ValidationError({'registration_number': 'Registration number is required for students.'})
+        if self.role == 'student' and not self.mentor:
+            raise ValidationError({'mentor': 'Every student must have a mentor.'})
 
     def __str__(self):
-        return f"{self.user.get_full_name()} ({self.user_type})"
-
-    class Meta:
-        # TODO: Uncomment constraints after initial migrations complete
-        # Temporary: Commented out to allow migrations to run without CheckConstraint errors
-        pass
-        # constraints = [
-        #     models.CheckConstraint(
-        #         check=models.Q(user_type__in=['student', 'mentor', 'admin']),
-        #         name='valid_user_type'
-        #     ),
-        # ]
-
-@receiver(post_save, sender=User)
-def create_user_profile(sender, instance, created, **kwargs):
-    if created:
-        UserProfile.objects.create(user=instance)
-
-@receiver(post_save, sender=User)
-def save_user_profile(sender, instance, **kwargs):
-    instance.userprofile.save()
+        return f"{self.username} ({self.role})"

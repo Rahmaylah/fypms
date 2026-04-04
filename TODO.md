@@ -2,102 +2,252 @@
 
 ## ✅ Phase 1: Core Features (COMPLETED)
 - [x] Database schema design (PostgreSQL with pgvector support)
-- [x] Django models creation (Project, UserProfile, Appointment, DuplicateFlag)
-- [x] REST API endpoints (CRUD operations for all models)
-- [x] Authentication setup (JWT-based login)
-- [x] Admin panel configuration (Django admin interface)
-- [x] Basic React frontend (Login, Dashboards for Student/Mentor/Admin)
+- [x] Django models creation (Project, ProjectType, ProjectUser, DuplicateFlag, User with roles)
+- [x] REST API endpoints (CRUD operations - ViewSets for Users, Projects, ProjectUsers, DuplicateFlags, ProjectTypes)
+- [x] Authentication setup (Session-based login via `/api/login/` endpoint)
+- [x] Admin panel configuration (Django admin interface available)
+- [x] Basic React frontend (Login, Dashboards for Student/Mentor/Coordinator)
 - [x] Project structure and dependencies setup
+- [x] User role system (Student, Mentor, Coordinator roles with permissions)
+- [x] ProjectUser model for group project support
+- [x] Basic API filtering (year, status, is_flagged_duplicate)
+- [x] CORS configuration for React frontend
 
 ---
 
-## 🔄 Phase 2: Duplicate Detection & Intelligence (IN PROGRESS)
-- [ ] **Implement Embedding Generation**
-  - [ ] Create `projects/utils.py` with embedding generation functions
-  - [ ] Integrate sentence-transformers for project embeddings
-  - [ ] Generate embeddings on project creation/update (signals)
-  - [ ] Store embeddings in pgvector columns
-  - [ ] Create management command for batch embedding generation
-  - [ ] Add embedding generation to project save/update
+## 🔴 Phase 2: Duplicate Detection & Intelligence (NOT STARTED)
+### **Status:** Critical feature not yet implemented - embedding generation and duplicate detection logic completely missing
 
-- [ ] **Implement Duplicate Detection Algorithm**
-  - [ ] Create `projects/services.py` with similarity detection logic
-  - [ ] Semantic similarity search using embeddings (cosine distance)
-  - [ ] Full-text search using PostgreSQL indexes and pg_trgm
-  - [ ] Hybrid scoring (combine semantic + lexical similarity)
-  - [ ] Configurable similarity threshold (admin setting)
-  - [ ] Auto-flag duplicates above threshold
-  - [ ] Batch duplicate detection job (management command)
+#### **Implement Embedding Generation** 
+- [ ] Create `projects/utils.py` with embedding generation functions
+- [ ] Integrate sentence-transformers for project embeddings (model: 'sentence-transformers/all-MiniLM-L6-v2' - 384 dims, or use all-mpnet-base-v2 - 768 dims)
+- [ ] Create functions:
+  - [ ] `generate_embeddings(text)` - Generate embedding from text
+  - [ ] `generate_project_embeddings(project)` - Generate all embeddings for a project
+  - [ ] `batch_embed_all_projects()` - Batch embed existing projects
+- [ ] Generate embeddings on project creation/update using Django signals
+- [ ] Store embeddings in pgvector columns (title_embedding, objectives_embedding, combined_embedding - all 768 dimensions)
+- [ ] Create management command `python manage.py generate_embeddings` for batch generation
+- [ ] Verify pgvector extension is enabled in PostgreSQL (`CREATE EXTENSION IF NOT EXISTS vector`)
 
-- [ ] **Duplicate Handling API Endpoints**
-  - [ ] Manual duplicate check endpoint for single project
-  - [ ] Bulk duplicate detection endpoint
-  - [ ] Mark duplicates as reviewed API
-  - [ ] Merge duplicate projects (optional advanced feature)
+#### **Implement Duplicate Detection Algorithm**
+- [ ] Create `projects/services.py` with similarity detection logic containing:
+  - [ ] `calculate_cosine_similarity(embedding1, embedding2)` - Compute similarity between two embeddings
+  - [ ] `semantic_similarity_search(project, threshold=0.85)` - Find semantically similar projects using pgvector similarity search
+  - [ ] `full_text_similarity(project, threshold=0.7)` - PostgreSQL full-text search on title/objectives (requires pg_trgm extension)
+  - [ ] `hybrid_similarity_score(semantic_score, lexical_score, weights)` - Combine scores (default: 70% semantic, 30% lexical)
+  - [ ] `check_project_for_duplicates(project_id)` - Find and flag duplicates for single project
+  - [ ] `batch_duplicate_detection()` - Run duplicate detection on all projects
+  - [ ] `flag_duplicates(project1_id, project2_id, similarity_score)` - Create DuplicateFlag records
 
----
+#### **Duplicate Handling API Endpoints**
+- [ ] Implement `POST /api/projects/{id}/duplicate_check/` - Manual trigger (PLACEHOLDER exists, needs implementation)
+- [ ] Create `POST /api/projects/bulk_duplicate_check/` - Bulk duplicate detection
+- [ ] Implement `POST /api/duplicate-flags/{id}/mark_reviewed/` - Mark as reviewed (SKELETON exists, needs full implementation)
+- [ ] Wire up DuplicateFlag creation when similarity above threshold
+- [ ] Add API response with detailed similarity breakdown (semantic + lexical scores)
 
-## 🔄 Phase 3: Search & Filtering (PARTIALLY DONE)
-- [x] **Basic Project Filtering** (API supports basic filtering)
-  - [ ] Enhanced filter by year, status, department
-  - [ ] Filter by has_duplicates flag
-  - [ ] Pagination for large result sets
-
-- [ ] **Full-Text Search**
-  - [ ] Search projects by title (PostgreSQL full-text search)
-  - [ ] Search projects by objectives
-  - [ ] Search projects by implementation details
-  - [ ] Search across all text fields with ranking
-
-- [ ] **Appointment Filtering**
-  - [ ] Filter by status (proposed, confirmed, completed, cancelled)
-  - [ ] Filter by date range
-  - [ ] Calendar integration
+#### **Configuration & Management**
+- [ ] Add Django settings for similarity thresholds (SIMILARITY_THRESHOLD = 0.85, etc.)
+- [ ] Create management command `python manage.py batch_detect_duplicates` 
+- [ ] Add management command `python manage.py generate_embeddings --all`
+- [ ] Add logging for duplicate detection operations
 
 ---
 
-## 🔄 Phase 4: Frontend Enhancements (IN PROGRESS)
-- [x] **Basic Authentication** (Login page and context)
-- [x] **Dashboard Layouts** (Student, Mentor, Admin dashboards exist)
-- [ ] **Project Management UI**
-  - [ ] Project submission form
-  - [ ] Project listing with filters
-  - [ ] Project detail view
-- [ ] **Duplicate Management UI**
-  - [ ] Duplicate flags display
-  - [ ] Manual duplicate review interface
-  - [ ] Similarity score visualization
-- [ ] **Appointment Scheduling UI**
-  - [ ] Calendar view for appointments
-  - [ ] Appointment booking form
-  - [ ] Status management
+## 🟡 Phase 3: Search & Filtering (PARTIALLY DONE - API exists, needs frontend)
+
+### **Backend Search (API Layer) - Mostly Complete**
+- [x] Basic project filtering by year, status, is_flagged_duplicate (API supports)
+- [x] Pagination via DRF default pagination
+- [ ] Full-text search endpoint `GET /api/projects/search/?q=query` (needs implementation)
+  - [ ] Use PostgreSQL full-text search with ranking
+  - [ ] Search title, main_objective, project_description, implementation_details
+  - [ ] Return results ranked by relevance
+
+### **Frontend Search UI - NOT DONE**
+- [ ] Add search bar to StudentDashboard for project discovery
+- [ ] Add filter UI (year, status, duplicate flag)
+- [ ] Display search results with pagination
+- [ ] Show relevance score/ranking for search results
+
+### **Appointment Features - Model exists but needs work**
+- [ ] Create Appointment model (not yet in database)
+  - [ ] Fields: student, mentor, date, status (proposed/confirmed/completed/cancelled), notes
+- [ ] Appointment API endpoints (list, create, update status)
+- [ ] Filter by status and date range
+- [ ] Calendar integration (React Calendar or similar)
 
 ---
 
-## 🔄 Phase 5: Admin Features & Configuration
-- [ ] **Admin Dashboard Enhancements**
-  - [ ] Analytics and statistics
-  - [ ] System configuration (similarity thresholds)
-  - [ ] Bulk operations
-- [ ] **Mentor Assignment Logic**
-  - [ ] Auto-assign mentors based on department/load
-  - [ ] Manual mentor reassignment
-- [ ] **Reporting & Analytics**
+## 🟡 Phase 4: Frontend Enhancements (PARTIALLY DONE)
+
+### **Project Management UI - IN PROGRESS**
+- [x] Project submission form in StudentDashboard (form exists, save needs refinement)
+- [x] Basic form fields (title, objective, description, implementation)
+- [ ] **Project listing with filters**
+  - [ ] Create `ProjectList.js` component
+  - [ ] Display all projects student can see
+  - [ ] Add year/status filter dropdowns
+  - [ ] Pagination for large datasets
+- [ ] **Project detail view**
+  - [ ] Create `ProjectDetail.js` component
+  - [ ] Show full project info including mentor name
+  - [ ] Display similarity score if flagged
+  - [ ] Edit/delete buttons (for owner)
+- [ ] Form validation and error handling
+- [ ] Proper file upload for project attachments (if needed)
+
+### **Duplicate Management UI - NOT STARTED**
+- [ ] **Create `DuplicateReview.js` component** (access from all dashboards)
+  - [ ] List all duplicate flags
+  - [ ] Show side-by-side comparison of similar projects
+  - [ ] Display similarity score (semantic + lexical breakdown)
+  - [ ] Mark as reviewed button
+  - [ ] Filter by reviewed status
+- [ ] **Duplicate visualization**
+  - [ ] Similarity score bar chart
+  - [ ] Highlight matching text sections
+  
+### **Mentor Dashboard - NEEDS ENHANCEMENT**
+- [x] Display list of mentees
+- [ ] **Show mentees' projects**
+  - [ ] List all projects by assigned students
+  - [ ] Project status indicators
+  - [ ] Quick stats (total, approved, pending)
+- [ ] **Mentor actions**
+  - [ ] Approve/reject project proposals
+  - [ ] Flag/unflag duplicates
+  - [ ] Leave feedback on projects
+- [ ] **Appointment management**
+  - [ ] View scheduled appointments
+  - [ ] Confirm/cancel appointments
+
+### **Coordinator Dashboard - SKELETON ONLY**
+- [x] Dashboard layout exists with card buttons (no functionality)
+- [ ] **Implement all coordinator functions:**
+  - [ ] Manage Users page (create/edit/delete users, assign mentors)
+  - [ ] System Reports page (statistics, charts)
+  - [ ] Settings page (similarity thresholds, other config)
+  - [ ] View All Projects page (with advanced filtering)
+  - [ ] Duplicate Review page (admin-level duplicate management)
+  - [ ] Bulk Operations page (mentor auto-assignment, data export)
+
+### **Student Dashboard - NEEDS WORK**
+- [x] Form to submit/edit project exists
+- [ ] **Implement:**
+  - [ ] View duplicate warnings if project flagged
+  - [ ] Show project status (proposed/approved/rejected)
+  - [ ] View mentor feedback/comments
+  - [ ] Upload project documentation/files
+- [ ] Better UX for form submission (progress indicator, success message)
+
+---
+
+## 🔴 Phase 5: Admin Features & Configuration (NOT STARTED)
+
+### **Admin Dashboard Backend**
+- [ ] Create `admin_dashboard` Django app (was mentioned in README but doesn't exist)
+- [ ] Statistics/Analytics views:
+  - [ ] Total projects by status
+  - [ ] Duplicate detection rate
+  - [ ] Mentor workload distribution
   - [ ] Project completion rates
-  - [ ] Duplicate detection statistics
-  - [ ] Appointment success rates
+- [ ] System configuration:
+  - [ ] SIMILARITY_THRESHOLD setting (UI to adjust)
+  - [ ] Batch operation schedule settings
+  - [ ] Feature flags
+
+### **Bulk Operations**
+- [ ] **Mentor Auto-Assignment:**
+  - [ ] Calculate mentor load (students per mentor)
+  - [ ] Auto-assign new students to least-loaded mentors in their department
+  - [ ] Manual reassignment UI
+- [ ] **Data Export:**
+  - [ ] CSV export of projects
+  - [ ] CSV export of duplicate flags
+  - [ ] Excel reports with statistics
+- [ ] **Batch Email:**
+  - [ ] Send notifications to users
+  - [ ] Project status notifications
+
+### **Advanced Duplicate Operations**
+- [ ] **Merge Duplicates:** (Optional advanced feature)
+  - [ ] Combine two projects into one
+  - [ ] Handle project reassignment
+  - [ ] Audit trail
+- [ ] **Bulk Duplicate Check:** (Triggered periodically)
+  - [ ] Management command to detect all duplicates
+  - [ ] Email notifications of new flags
 
 ---
 
-## 🔄 Phase 6: Testing & Deployment
-- [ ] **Unit Tests**
-  - [ ] Model tests
-  - [ ] API endpoint tests
-  - [ ] Duplicate detection algorithm tests
-- [ ] **Integration Tests**
-  - [ ] End-to-end workflows
-  - [ ] Frontend-backend integration
-- [ ] **Deployment Setup**
+## 🔴 Phase 6: Testing & Deployment (NOT STARTED)
+
+### **Unit Tests**
+- [ ] Model tests (accounts.models, projects.models)
+- [ ] API view tests (all CRUD endpoints)
+- [ ] **Duplicate detection algorithm tests:**
+  - [ ] Embedding generation tests
+  - [ ] Similarity calculation tests (known pairs with expected scores)
+  - [ ] Edge cases (empty text, very similar projects, identical projects)
+- [ ] Serializer tests
+- [ ] Permission/authentication tests
+
+### **Integration Tests**
+- [ ] End-to-end project submission workflow
+- [ ] Duplicate detection workflow (create 2 similar projects → verify flagged)
+- [ ] Frontend-backend integration (API response formats)
+- [ ] User role-based access tests
+
+### **Performance Testing**
+- [ ] Benchmark embedding generation (target: < 1s per project)
+- [ ] Test similarity search on large dataset (1000+ projects)
+- [ ] Test batch duplicate detection performance
+- [ ] Query optimization (index pgvector columns)
+
+### **Deployment Setup**
+- [ ] Docker setup (Dockerfile, docker-compose.yml)
+- [ ] Environment variables configuration (.env template)
+- [ ] Production settings (DEBUG=False, allowed hosts, secret key)
+- [ ] Database migrations automation
+- [ ] Static files collection
+- [ ] CORS configuration for production domain
+- [ ] SSL/HTTPS setup
+- [ ] Gunicorn/uWSGI configuration
+- [ ] Nginx reverse proxy setup
+- [ ] PostgreSQL pgvector extension deployment
+
+---
+
+## 📋 Additional Issues & Fixes Needed
+
+### **Backend Issues**
+- [ ] API `/api/login/` uses session auth - consider JWT for better API usage (optional)
+- [ ] No token refresh mechanism if using JWT
+- [ ] No user registration endpoint (only admin can create users)
+- [ ] ProjectSerializer doesn't include user info (creator name)
+- [ ] Missing pagination on some endpoints
+- [ ] Appointment model needs to be created and added to API
+
+### **Frontend Issues**
+- [ ] StudentDashboard form submission success handling (currently no feedback)
+- [ ] Loading states inconsistent across components
+- [ ] Error handling could be better (generic error messages)
+- [ ] No form validation on frontend (only backend)
+- [ ] MentorDashboard doesn't show projects - only mentees list
+- [ ] CoordinatorDashboard has no actual functionality
+- [ ] AuthContext checks `mentor_info` but serializer may not always include it
+
+### **Database/Schema Issues**
+- [ ] Verify pgvector extension exists: `CREATE EXTENSION IF NOT EXISTS vector;`
+- [ ] pg_trgm extension needed for full-text search: `CREATE EXTENSION IF NOT EXISTS pg_trgm;`
+- [ ] Create database indexes on frequently searched columns
+- [ ] pgvector similarity search indexes: `CREATE INDEX ON projects USING ivfflat (combined_embedding vector_cosine_ops);`
+
+### **DevOps/Infrastructure**
+- [ ] requirements.txt may need updating (check version compatibility)
+- [ ] venv/vee environment comparison complete (identical) - can remove vee if unused
   - [ ] Docker configuration
   - [ ] Production settings
   - [ ] Static file serving

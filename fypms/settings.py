@@ -10,7 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
+from decouple import config, Csv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +22,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-su1^8l=9uhzv#flrcd^$hfi^x%!lv+@&x!cz57gn)*_haaypym'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+# Network Configuration - Adaptive to IP changes
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
 
 # Application definition
@@ -41,15 +44,16 @@ INSTALLED_APPS = [
     # Custom apps
     'accounts',
     'projects',
-    'appointments',
     'api',
-    'admin_panel',
     'core',
+    'fypms',  # Main project app for management commands
     
     # Third-party
     'rest_framework', # Add Django REST Framework
     'corsheaders',  # Add CORS headers app
 ]
+
+AUTH_USER_MODEL = 'accounts.User'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -60,6 +64,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.middleware.CSRFExemptMiddleware',  # Add CSRF exemption middleware
 ]
 
 ROOT_URLCONF = 'fypms.urls'
@@ -79,6 +84,12 @@ TEMPLATES = [
     },
 ]
 
+# NOTE:
+# This section configures Django's server-side template engine. In a React + DRF setup,
+# React is the frontend and consumes API endpoints, so these template settings are usually
+# not used for the main client UI. It can still be useful for Django admin or optional
+# server-rendered pages, so we keep it for compatibility.
+
 WSGI_APPLICATION = 'fypms.wsgi.application'
 
 
@@ -88,11 +99,11 @@ WSGI_APPLICATION = 'fypms.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',  # Use PostgreSQL as the database engine
-        'NAME': 'fypms',
-        'USER': 'postgres',
-        'PASSWORD': 'reh2042',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
+        'PORT': config('DB_PORT'),
     }
 }
 
@@ -139,10 +150,13 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS settings --- allow requests from the React frontend
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+CORS_ALLOWED_ORIGINS = []
+# CORS settings --- allow requests from the React frontend
+CORS_ALLOWED_ORIGINS = config('CORS_ORIGINS', default='http://localhost:3000,http://127.0.0.1:3000', cast=Csv())
+CORS_ALLOW_CREDENTIALS = True  # Allow cookies to be sent
+
+# CSRF settings for session authentication
+CSRF_TRUSTED_ORIGINS = config('CSRF_ORIGINS', default='http://localhost:3000,http://127.0.0.1:3000', cast=Csv())
 
 # REST Framework settings
 REST_FRAMEWORK = {

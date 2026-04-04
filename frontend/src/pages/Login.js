@@ -1,8 +1,8 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import '../styles/Login.css';
+import nitLogo from '../assets/nit.png';
 
 function Login() {
   const [username, setUsername] = useState('');
@@ -18,52 +18,54 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://127.0.0.1:8000/api/login/', {
-        username,
-        password,
-      });
-
-      // Store user data
-      const userData = response.data.user;
-      login(userData);
-
-      // Redirect based on role
-      if (userData.role === 'mentor') {
-        navigate('/mentor');
-      } else if (userData.role === 'student') {
-        navigate('/student');
-      } else if (userData.role === 'admin') {
-        navigate('/admin');
+      // Use the context's login function which handles the API call correctly
+      const result = await login(username, password);
+      
+      if (result.success) {
+        console.log('Login successful');
+        // Get the updated user from context after login
+        setTimeout(() => {
+          // Small delay to let context update
+          const storedUser = JSON.parse(localStorage.getItem('user'));
+          if (storedUser) {
+            if (storedUser.role === 'mentor') {
+              navigate('/mentor');
+            } else if (storedUser.role === 'student') {
+              navigate('/student');
+            } else if (storedUser.role === 'coordinator') {
+              navigate('/coordinator');
+            }
+          }
+        }, 100);
+      } else {
+        // Display specific error messages based on error type
+        let displayError = result.error || 'Login failed';
+        
+        if (result.errorType === 'network') {
+          displayError = '⚠️ ' + result.error;
+        } else if (result.errorType === 'auth') {
+          displayError = '❌ ' + result.error;
+        }
+        
+        setError(displayError);
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'Invalid credentials. Please try again.');
       console.error('Login error:', err);
+      setError(err.message || 'Invalid credentials. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const getCookie = (name) => {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-      const cookies = document.cookie.split(';');
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
-        }
-      }
-    }
-    return cookieValue;
-  };
+
 
   return (
     <div className="login-container">
       <div className="login-box">
         <div className="login-header">
-          <h1>FYPMS</h1>
-          <p>Final Year Project Management System</p>
+          <h1>CCT</h1>
+          {/* <p>Final Year Project Management System</p> */}
+          <img src={nitLogo} alt="NIT Logo" className="nit-logo" />
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
@@ -107,15 +109,6 @@ function Login() {
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
-
-        <div className="login-footer">
-          <p className="text-muted small">
-            Demo Credentials:<br/>
-            Mentor: mentor_john / password<br/>
-            Student: student_alice / password<br/>
-            Admin: admin / password
-          </p>
-        </div>
       </div>
     </div>
   );

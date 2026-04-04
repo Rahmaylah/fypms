@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import '../styles/Dashboard.css';
 
-function AdminDashboard() {
+function CoordinatorDashboard() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -16,7 +16,7 @@ function AdminDashboard() {
     <div className="dashboard-container admin-dashboard">
       <nav className="navbar navbar-expand-lg navbar-light bg-white fixed-top">
         <div className="container-fluid">
-          <span className="navbar-brand">FYPMS - Admin Dashboard</span>
+          <span className="navbar-brand">FYPMS - Coordinator Dashboard</span>
           <button
             className="btn btn-outline-dark ms-auto"
             onClick={handleLogout}
@@ -104,4 +104,4 @@ function AdminDashboard() {
   );
 }
 
-export default AdminDashboard;
+export default CoordinatorDashboard;

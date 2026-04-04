@@ -36,6 +36,12 @@
   font-size: 0.95rem;
 }
 
+.nit-logo {
+  width: 50%;
+  height: auto;
+  margin-top: 15px;
+}
+
 .login-form {
   margin-bottom: 20px;
 }
@@ -88,4 +94,14 @@
 
 .alert {
   margin-bottom: 20px;
+}
+
+.alert-danger {
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+  color: #721c24;
+  padding: 12px 20px;
+  border-radius: 5px;
+  font-weight: 500;
+  line-height: 1.5;
 }

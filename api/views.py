@@ -1,38 +1,69 @@
+from accounts import models
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
+# from rest_framework.response import action
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import authenticate
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from django.db import models
 
-from accounts.models import UserProfile
-from projects.models import Project, ProjectStudent, DuplicateFlag
-from appointments.models import Appointment
+from accounts.models import User
+from projects.models import Project, ProjectType, ProjectUser, DuplicateFlag
 
 from .serializers import (
-    UserProfileSerializer, ProjectSerializer, ProjectStudentSerializer,
-    DuplicateFlagSerializer, AppointmentSerializer
+    UserSerializer, ProjectSerializer, ProjectTypeSerializer, ProjectUserSerializer,
+    DuplicateFlagSerializer
 )
 
 
-class UserProfileViewSet(viewsets.ModelViewSet):
+class UserViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for managing user profiles.
-    - list: Get all user profiles
-    - retrieve: Get specific user profile
-    - create: Create new user profile (admin only)
-    - update: Update user profile (admin or self)
+    ViewSet for managing users.
     """
-    queryset = UserProfile.objects.all()
-    serializer_class = UserProfileSerializer
-    permission_classes = [IsAuthenticated]
+    queryset = User.objects.all()
+    serializer_class = UserSerializer  # Rename to UserSerializer later
+    permission_classes = [IsAuthenticatedOrReadOnly] # Only authenticated users can create/update/delete, but anyone can read
     
+    # Allow mentor/role filtering on list endpoint for staff/mentor use
     def get_queryset(self):
-        # Users can only see their own profile unless they're admin
         user = self.request.user
-        if user.is_staff or user.is_superuser:
-            return UserProfile.objects.all()
-        return UserProfile.objects.filter(user=user)
+        # If user is not authenticated, return all users (read-only)
+        if not user.is_authenticated:
+            queryset = User.objects.all()
+        # If authenticated and staff/superuser, return all users
+        elif user.is_staff or user.is_superuser:
+            queryset = User.objects.all()
+        # If authenticated regular user, return only themselves
+        else:
+            queryset = User.objects.filter(id=user.id)
+
+        mentor_id = self.request.query_params.get('mentor')
+        role = self.request.query_params.get('role')
+
+        if mentor_id is not None:
+            queryset = queryset.filter(mentor_id=mentor_id)
+        if role is not None:
+            queryset = queryset.filter(role=role)
+
+        return queryset
+
+    @action(detail=False, methods=['get'])
+    def me(self, request):
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data)
+
+
+
+
+class ProjectTypeViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing project type options"""
+    queryset = ProjectType.objects.all().order_by('name')
+    serializer_class = ProjectTypeSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -48,13 +79,50 @@ class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all().order_by('-created_at')
     serializer_class = ProjectSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-    filterset_fields = ['year', 'status', 'is_flagged_duplicate']
-    search_fields = ['title', 'objectives']
+    # ordering_fields = ['created_at']
+
+    filterset_fields = ['project_type', 'year', 'status', 'is_flagged_duplicate']
+    search_fields = ['title', 'main_objective', 'specific_objectives', 'project_description']
+    
+    def get_queryset(self):
+        user = self.request.user
+        # If user is not authenticated, return all projects (read-only)
+        if not user.is_authenticated:
+            return Project.objects.all().order_by('-created_at')
+        # If student, return only their projects (where they are creator or assigned)
+        if user.role == 'student':
+            return Project.objects.filter(
+                models.Q(user=user) | models.Q(project_users__user=user)
+            ).distinct().order_by('-created_at')
+        # Otherwise (mentor/coordinator), return all projects
+        else:
+            return Project.objects.all().order_by('-created_at')
+    
+    def get_object(self):
+        obj = super().get_object()
+        user = self.request.user
+
+        # Allow access if user is not authenticated (read-only), mentor, or coordinator
+        if not user.is_authenticated or user.role != 'student':
+            return obj
+        
+        # For students, only allow access if they're part of the project
+        if ProjectUser.objects.filter(project=obj, user=user).exists():
+            return obj
+
+        raise PermissionDenied("You do not have permission to access this project.")
     
     def perform_create(self, serializer):
-        # Could add logic to auto-generate embeddings here
-        serializer.save()
-    
+        project = serializer.save(user=self.request.user)
+
+        user = self.request.user
+
+        ProjectUser.objects.create(
+            project=project,
+            user=user,
+            role='lead'
+        )
+        
     @action(detail=True, methods=['post'])
     def duplicate_check(self, request, pk=None):
         """
@@ -75,20 +143,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
         flagged_projects = Project.objects.filter(is_flagged_duplicate=True)
         serializer = self.get_serializer(flagged_projects, many=True)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='my')
+    def my_projects(self, request):
+        """
+        Return projects linked to the logged-in user.
+        """
+        user = request.user
+        projects = Project.objects.filter(project_users__user=user).distinct()
+        serializer = self.get_serializer(projects, many=True)
+        return Response(serializer.data)
 
 
-class ProjectStudentViewSet(viewsets.ModelViewSet):
+class ProjectUserViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for managing project-student relationships (group projects).
-    - list: Get all project-student links
-    - retrieve: Get specific link
-    - create: Add student to project
-    - destroy: Remove student from project
+    ViewSet for managing project-user relationships (group projects).
     """
-    queryset = ProjectStudent.objects.all()
-    serializer_class = ProjectStudentSerializer
-    permission_classes = [IsAuthenticated]
-    filterset_fields = ['project', 'student', 'role']
+    queryset = ProjectUser.objects.all()
+    serializer_class = ProjectUserSerializer  # Rename later
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    filterset_fields = ['project', 'user', 'role']
 
 
 class DuplicateFlagViewSet(viewsets.ModelViewSet):
@@ -98,9 +172,9 @@ class DuplicateFlagViewSet(viewsets.ModelViewSet):
     - retrieve: Get specific flag
     - mark_reviewed: Mark a flag as reviewed
     """
-    queryset = DuplicateFlag.objects.all().order_by('-flagged_at')
+    queryset = DuplicateFlag.objects.all().order_by('-created_at')
     serializer_class = DuplicateFlagSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
     filterset_fields = ['reviewed', 'project', 'similar_project']
     
     @action(detail=True, methods=['post'])
@@ -110,85 +184,17 @@ class DuplicateFlagViewSet(viewsets.ModelViewSet):
         """
         duplicate_flag = self.get_object()
         duplicate_flag.reviewed = True
-        duplicate_flag.reviewed_by = request.user.userprofile
+        duplicate_flag.reviewed_by = request.user
         duplicate_flag.save()
         serializer = self.get_serializer(duplicate_flag)
         return Response(serializer.data)
 
 
-class AppointmentViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for managing appointments.
-    - list: Get all appointments (filtered by mentor/student)
-    - retrieve: Get specific appointment
-    - create: Schedule new appointment
-    - update: Update appointment (mentor or admin)
-    - destroy: Cancel appointment
-    - my_appointments: Get appointments for current user
-    """
-    queryset = Appointment.objects.all().order_by('start_time')
-    serializer_class = AppointmentSerializer
-    permission_classes = [IsAuthenticated]
-    filterset_fields = ['status', 'mentor', 'student']
-    
-    def get_queryset(self):
-        # Users can only see their own appointments unless they're admin
-        user = self.request.user
-        if user.is_staff or user.is_superuser:
-            return Appointment.objects.all().order_by('start_time')
-        try:
-            profile = user.userprofile
-            # Show appointments where user is mentor or student
-            from django.db.models import Q
-            return Appointment.objects.filter(
-                Q(mentor=profile) | Q(student=profile)
-            ).order_by('start_time')
-        except UserProfile.DoesNotExist:
-            return Appointment.objects.none()
-    
-    @action(detail=False, methods=['get'])
-    def my_appointments(self, request):
-        """
-        Get all appointments for the current user (as mentor or student).
-        """
-        try:
-            profile = request.user.userprofile
-            from django.db.models import Q
-            appointments = Appointment.objects.filter(
-                Q(mentor=profile) | Q(student=profile)
-            ).order_by('start_time')
-            serializer = self.get_serializer(appointments, many=True)
-            return Response(serializer.data)
-        except UserProfile.DoesNotExist:
-            return Response(
-                {'error': 'User profile not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-    
-    @action(detail=True, methods=['post'])
-    def confirm(self, request, pk=None):
-        """
-        Mentor confirms an appointment.
-        """
-        appointment = self.get_object()
-        appointment.status = 'confirmed'
-        appointment.save()
-        serializer = self.get_serializer(appointment)
-        return Response(serializer.data)
-    
-    @action(detail=True, methods=['post'])
-    def cancel(self, request, pk=None):
-        """
-        Cancel an appointment.
-        """
-        appointment = self.get_object()
-        appointment.status = 'cancelled'
-        appointment.save()
-        serializer = self.get_serializer(appointment)
-        return Response(serializer.data)
+
 
 
 @api_view(['POST'])
+@csrf_exempt
 def login_view(request):
     """
     Authenticate user and return user data.
@@ -204,20 +210,16 @@ def login_view(request):
     
     user = authenticate(username=username, password=password)
     if user:
+        # Log the user in to establish session
+        from django.contrib.auth import login
+        login(request, user)
+        
         try:
-            profile = user.userprofile
-            return Response({
-                'user': {
-                    'id': user.id,
-                    'username': user.username,
-                    'role': profile.user_type
-                }
-            })
-        except UserProfile.DoesNotExist:
-            return Response(
-                {'error': 'User profile not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            from .serializers import UserSerializer
+            serializer = UserSerializer(user)
+            return Response({'user': serializer.data})
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
     
     return Response(
         {'error': 'Invalid credentials'},

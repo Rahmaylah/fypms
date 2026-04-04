@@ -4,7 +4,7 @@ import { AuthContext, AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
 import MentorDashboard from './pages/MentorDashboard';
 import StudentDashboard from './pages/StudentDashboard';
-import AdminDashboard from './pages/AdminDashboard';
+import CoordinatorDashboard from './pages/CoordinatorDashboard';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles/App.css';
 
@@ -46,8 +46,8 @@ function AppContent() {
         element={<ProtectedRoute component={StudentDashboard} requiredRole="student" />}
       />
       <Route
-        path="/admin"
-        element={<ProtectedRoute component={AdminDashboard} requiredRole="admin" />}
+        path="/coordinator"
+        element={<ProtectedRoute component={CoordinatorDashboard} requiredRole="coordinator" />}
       />
       <Route
         path="/"
