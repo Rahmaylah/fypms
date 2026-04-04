@@ -9,14 +9,14 @@ class ProjectTypeAdmin(admin.ModelAdmin):
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ('title', 'user', 'year', 'status', 'is_flagged_duplicate', 'created_at')
-    list_filter = ('status', 'year', 'is_flagged_duplicate', 'created_at')
+    list_display = ('title', 'user', 'project_type', 'year', 'status', 'is_flagged_duplicate', 'created_at')
+    list_filter = ('status', 'year', 'is_flagged_duplicate', 'created_at', 'project_type')
     search_fields = ('title', 'main_objective', 'specific_objectives', 'project_description')
     readonly_fields = ('title_embedding', 'objectives_embedding', 'combined_embedding', 'get_objectives_display')
 
     fieldsets = (
         ('Basic Information', {
-            'fields': ('user', 'title', 'main_objective', 'get_objectives_display', 'specific_objectives', 'project_description', 'implementation_details', 'year', 'status')
+            'fields': ('user', 'title', 'project_type', 'main_objective', 'get_objectives_display', 'specific_objectives', 'project_description', 'implementation_details', 'year', 'status')
         }),
         ('Embeddings (Read-only)', {
             'fields': ('title_embedding', 'objectives_embedding', 'combined_embedding'),
