@@ -22,6 +22,7 @@ class Project(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # Creator
     title = models.CharField(max_length=500)
+    project_type = models.ForeignKey('ProjectType', on_delete=models.SET_NULL, null=True, blank=True)
     main_objective = models.TextField(blank=True)
     specific_objectives = models.JSONField(default=list, blank=True)
     project_description = models.TextField(blank=True)

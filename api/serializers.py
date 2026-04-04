@@ -36,9 +36,12 @@ class ProjectTypeSerializer(serializers.ModelSerializer):
 
 
 class ProjectSerializer(serializers.ModelSerializer):
+    project_type = serializers.PrimaryKeyRelatedField(queryset=ProjectType.objects.all(), allow_null=True, required=False)
+    project_type_name = serializers.CharField(source='project_type.name', read_only=True)
+
     class Meta:
         model = Project
-        fields = ['id', 'title', 'main_objective', 'specific_objectives', 'project_description', 'implementation_details', 'year', 'status',
+        fields = ['id', 'title', 'project_type', 'project_type_name', 'main_objective', 'specific_objectives', 'project_description', 'implementation_details', 'year', 'status',
                   'is_flagged_duplicate', 'duplicate_check_score', 'created_at', 'updated_at']
         read_only_fields = ['title_embedding', 'objectives_embedding', 'combined_embedding', 
                            'last_similarity_check']

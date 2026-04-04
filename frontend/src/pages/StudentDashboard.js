@@ -55,7 +55,7 @@ function StudentDashboard() {
           // Initialize form with existing project data
           setFormData({
             title: projectData.title || '',
-            project_type: projectData.project_type || '',
+            project_type: projectData.project_type?.id || projectData.project_type || '',
             main_objective: projectData.main_objective || '',
             specific_objectives: projectData.specific_objectives?.join('--') || '',
             project_description: projectData.project_description || '',
@@ -103,7 +103,7 @@ function StudentDashboard() {
     if (project) {
       setFormData({
         title: project.title || '',
-        project_type: project.project_type || '',
+        project_type: project.project_type?.id || project.project_type || '',
         main_objective: project.main_objective || '',
         specific_objectives: project.specific_objectives?.join('--') || '',
         project_description: project.project_description || '',
@@ -341,7 +341,7 @@ function StudentDashboard() {
 
                 <div className="mb-2">
                   <label className="form-label"><strong>Project Type:</strong></label>
-                  <p>{project.project_type || 'Not specified'}</p>
+                  <p>{project.project_type_name || project.project_type?.name || project.project_type || 'Not specified'}</p>
                 </div>
 
                 <div className="mb-2">
