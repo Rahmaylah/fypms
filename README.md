@@ -12,6 +12,15 @@
 - [Contributing](#contributing) — Development guidelines
 - [Design Docs](#further-reading) — Deep dives (separate files)
 
+## User Roles and Relationships
+
+- **Students**: Create and manage projects. Each student must have a mentor (one-to-many relationship).
+- **Mentors**: Supervise students and projects. One mentor can have multiple students.
+- **Coordinators**: Higher-level admins who manage mentors. Coordinators can also serve as mentors for students.
+- **Relationships**:
+  - Student-Mentor: Direct ForeignKey in User model (`mentor` field). Every student requires a mentor.
+  - Project-Mentor: Indirect via student's mentor (`project.user.mentor`).
+
 ## Project Structure
 
 The project follows a modular Django architecture with separate apps for different domains:
@@ -26,10 +35,6 @@ fypms/
 │   ├── models.py          # Project, ProjectStudent, DuplicateFlag models
 │   ├── utils.py           # Embedding generation and similarity algorithms
 │   └── services.py        # Duplicate detection and mentor assignment logic
-├── appointments/          # Scheduling and calendar integration
-│   ├── models.py          # Appointment model
-│   ├── views.py           # Scheduling views
-│   └── utils.py           # Calendar integration utilities
 ├── api/                   # REST API endpoints
 │   ├── views.py           # API views for CRUD operations
 │   ├── serializers.py     # DRF serializers
@@ -57,7 +62,6 @@ fypms/
 
 - **accounts**: Handles user authentication, profiles, and role-based permissions for students, mentors, and admins.
 - **projects**: Manages project submissions, student-project relationships, and implements duplicate detection algorithms.
-- **appointments**: Provides scheduling functionality with calendar integration and conflict detection.
 - **api**: Exposes REST API endpoints for frontend integration and third-party access.
 - **admin_dashboard**: Custom admin interface for system configuration, analytics, and bulk operations.
 - **core**: Contains shared utilities, base models, constants, and common functionality used across apps.
@@ -100,14 +104,63 @@ curl -X POST http://localhost:8000/api/projects \
 }
 ```
 
+## Adaptive Networking (Mobile Development)
+
+**Problem:** Network IP addresses change frequently with DHCP, breaking mobile development access.
+
+**Solution:** Automatic IP detection and configuration updates.
+
+### Setup Adaptive Networking
+
+1. **Copy environment template:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Auto-detect and update your current IP:**
+   ```bash
+   python manage.py update_network_config
+   ```
+
+3. **Start servers for network access:**
+   ```bash
+   # Backend - accessible from any device on your network
+   python manage.py runserver 0.0.0.0:8000
+   
+   # Frontend - will automatically connect to backend on same IP
+   cd frontend && npm start
+   ```
+
+4. **Access from mobile devices:**
+   - Find your PC's IP: `python manage.py update_network_config --dry-run`
+   - Open `http://[YOUR_IP]:3000` on your phone/tablet
+
+### How It Works
+
+- **Environment Variables:** Network settings stored in `.env` file
+- **Auto-Detection:** Management command finds your current network IP
+- **Dynamic Frontend:** React app automatically calls backend on same hostname
+- **No Hardcoding:** Configuration adapts when your IP changes
+
+### Troubleshooting
+
+**IP Changed?** Run: `python manage.py update_network_config`
+
+**Connection Issues?** Check:
+- Same WiFi network
+- Firewall allows port 8000
+- Run `python manage.py update_network_config --dry-run` to verify IP
+
+---
+
 ## Key Features
 
 - **Duplicate Detection:** Configurable similarity checks across project titles, objectives, and implementation details.
 - **Hybrid Algorithm:** Combines sentence embeddings (semantic), full-text search (lexical), and Levenshtein distance (typos).
 - **Configurable Scope:** Search current year or last N years; tune similarity thresholds (0.6–0.8 flags for review, ≥0.8 auto-flags).
 - **Automated Mentor Assignment:** Respects student preferences, balances mentor load, and allows manual override.
+- **Project Type Management:** Admin can define project categories (e.g., Embedded Systems, AI/ML, IoT) via ProjectType model and API.
 - **Admin Dashboard:** Manage settings, review flagged duplicates, and track mentor availability.
-- **Mentee Notifications & Calendar:** Built-in appointment scheduling with reminder notifications.
 
 ## Architecture & Tech Stack
 
@@ -128,9 +181,8 @@ curl -X POST http://localhost:8000/api/projects \
 |--------|-----------|-------|
 | **Student** | id, name, email, reg_no, course_id, mentor_id, created_at | Foreign key to mentor |
 | **Mentor** | id, name, email, created_at | Can be admin; manages multiple students |
-| **Project** | id, title, objectives, year, status, created_at, *_embedding (VECTOR), last_similarity_check | Status: proposed, approved, rejected, completed |
+| **Project** | id, title, project_type, main_objective, specific_objectives, project_description, implementation_details, year, status, created_at, *_embedding (VECTOR), last_similarity_check | Status: proposed, approved, rejected, completed |
 | **Project_Student** | id, project_id, student_id, role, joined_at | Links students to group projects; role: lead/member |
-| **Appointment** | id, mentor_id, student_id, start_time, end_time, status, notes, created_at | Status: proposed, confirmed, completed, cancelled, reschedule_requested |
 
 ### Indexes for Performance
 
